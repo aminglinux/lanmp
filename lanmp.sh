@@ -1,4 +1,8 @@
 #!/bin/bash
+## written by aming.
+## 2015-06-24.
+
+#######Begin########
 echo "It will install lamp or lnmp."
 sleep 1
 ##check last command is OK or not.
@@ -472,3 +476,4 @@ case $t in
         echo "Only 'lamp' or 'lnmp' your can input."
         ;;
 esac
+##########end##############
