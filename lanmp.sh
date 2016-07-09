@@ -476,4 +476,5 @@ case $t in
         echo "Only 'lamp' or 'lnmp' your can input."
         ;;
 esac
+##111111
 ##########end##############
