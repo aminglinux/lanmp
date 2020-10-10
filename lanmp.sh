@@ -121,6 +121,35 @@ install_mysqld() {
             check_ok
             break
             ;;
+         5.7)
+            cd /usr/local/src
+            [ -f mysql-5.7.10-linux-glibc2.5-$ar.tar.gz ] || wget http://mirrors.sohu.com/mysql/MySQL-5.7/mysql-5.7.10-linux-glibc2.5-$ar.tar.gz
+            tar zxf mysql-5.7.10-linux-glibc2.5-$ar.tar.gz
+            check_ok
+            [ -d /usr/local/mysql ] && /bin/mv /usr/local/mysql /usr/local/mysql_bak
+            mv mysql-5.7.10-linux-glibc2.5-$ar /usr/local/mysql
+            if ! grep '^mysql:' /etc/passwd
+            then
+                useradd -M mysql -s /sbin/nologin
+            fi
+            myum compat-libstdc++-33
+            [ -d /data/mysql ] && /bin/mv /data/mysql /data/mysql_bak
+            mkdir -p /data/mysql
+            chown -R mysql:mysql /data/mysql
+            cd /usr/local/mysql
+            ./bin/mysqld  --initialize --user=mysql --datadir=/data/mysql;
+            ./bin/mysql_ssl_rsa_setup --datadir=/data/mysql;
+            check_ok
+            /bin/cp support-files/my-default.cnf  /etc/my.cnf;
+            /bin/cp support-files/mysql.server /etc/init.d/mysqld;
+            sed -i -e 's?# basedir = .....?basedir = /usr/local/mysql?g;s?# datadir = .....?datadir = '\/data\/mysql'?g;s?# port = .....?port = 3306?g;s?# socket = .....?socket = /tmp/mysql.sock?g;s?^\[mysqld\]$?\[mysqld\]\nskip-grant-tables?g' /etc/my.cnf;
+            chmod 755 /etc/init.d/mysqld;
+            chkconfig --add mysqld;
+            chkconfig mysqld on;
+            service mysqld start;
+            check_ok
+            break
+            ;;
 
          *)
             echo "only 1(5.1) or 2(5.6)"
@@ -129,11 +158,37 @@ install_mysqld() {
     esac
 }
 
+#install Apr and Apr-util
+aprin()
+{
+
+    cd /usr/local/src/
+    aprver=apr-1.5.2;
+    apr_utilver=apr-util-1.5.4;
+    echo "install "$aprver"...";
+    wget -c http://mirrors.ustc.edu.cn/apache/apr/$aprver.tar.gz;
+    tar -zxvf $aprver.tar.gz
+    cd $aprver;
+    ./configure --prefix=/usr/local/$aprver;
+    make && make install;
+    checkOK;
+    cd $cdir/src;
+    echo "install "$apr_utilver"...";
+    wget -c http://mirrors.ustc.edu.cn/apache/apr/$apr_utilver.tar.gz;
+    tar -zxvf $apr_utilver.tar.gz;
+    cd $apr_utilver;
+    ./configure --prefix=/usr/local/$aprver --with-apr=/usr/local/$aprver
+    make && make install
+    checkOK;
+}
+
 ##function of install httpd.
 install_httpd() {
+case $httpd_v in
+2.2)
 echo "Install apache version 2.2."
 cd /usr/local/src
-[ -f httpd-2.2.16.tar.gz ] || wget  http://syslab.comsenz.com/downloads/linux/httpd-2.2.16.tar.gz
+[ -f httpd-2.2.16.tar.gz ] || wget  http://mirrors.cnnic.cn/apache/httpd/httpd-2.2.16.tar.gz
 tar zxf  httpd-2.2.16.tar.gz && cd httpd-2.2.16
 check_ok
 ./configure \
@@ -147,6 +202,38 @@ check_ok
 check_ok
 make && make install
 check_ok
+break
+            ;;
+    2.4)
+        aprin && myum pcre-devel
+        echo "Install apache version 2.4."
+        cd /usr/local/src
+        [ -f httpd-4.18.tar.gz ] || wget  http://mirrors.cnnic.cn/apache/httpd/httpd-2.4.18.tar.gz
+        tar zxvf httpd-2.4.18.tar.gz && cd httpd-2.4.18
+        check_ok
+         ./configure\
+        --prefix=/usr/local/apache\
+        --sysconfdir=/etc/httpd\
+        --enable-so\
+        --enable-ssl\
+        --enable-rewrite\
+        --enable-cgi\
+        --with-zlib\
+        --with-pcre\
+        --with-apr=/usr/local/$aprver/\
+        --with-apr-util=/usr/local/$aprver/\
+        --enable-modules=most\
+        --enable-mpms-shared=all;
+        make && make install;
+        check_ok
+        break
+            ;;
+
+         *)
+            echo "only 1(2.2) or 2(2.4)"
+            exit 1
+            ;;
+    esac
 }
 
 ##function of install lamp's php.
@@ -463,8 +550,10 @@ echo "The lnmp done, Please use 'http://your ip/index.php' to access."
 read -p "Please chose which type env you install, (lamp|lnmp)? " t
 case $t in
     lamp)
-        read -p "Please chose the version of mysql. (5.1|5.6)" mysql_v
+
+        read -p "Please chose the version of mysql. (5.1|5.6|5.7)" mysql_v
         read -p "Please chose the version of php. (5.4|5.6)" php_v
+        read -p "Please chose the version of apache. (2.2|2.4)" httpd_v
         lamp
         ;;
     lnmp)
